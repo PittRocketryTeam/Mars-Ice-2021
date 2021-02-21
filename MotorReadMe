@@ -1,0 +1,4 @@
+This directory includes sample code for motor controls.
+Included are an example of a Matlab code that controls the motor directly
+  ^This doesn't control motor speed well
+This directory also includes a sample that demonstrates control with serial signals, which is the preferred approach
