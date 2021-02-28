@@ -1,7 +1,7 @@
 /*
  * Pitt SOAR
  * This is the comprehensive code for controlling the drill via MATLAB and Arduino
- * Updated 2/25/2021
+ * Updated 2/28/2021
  */
 
 /*THINGS THAT STILL NEED DONE:
@@ -10,13 +10,12 @@
  * Linear Actuator Library, Initialization, and Code
  * Relay Code
  */
-#include <BasicStepperDriver.h> //library for stepper motors + driver
 #include<HX711.h> //Load cell library
 
 
 
 //SERIAL COMMUNICATION VARIABLE
-int sref=0,oldRef=0;
+int sref=0;
 
 
 
@@ -31,7 +30,7 @@ float force = 0,dist = 0;
 
 //MOTOR CONTROL DEFINITIONS
 // Define Motor steps per revolution. Ours is set with the switches on the motor controller
-#define MOTOR_STEPS 6400
+#define MOTOR_STEPS 800
 #define RPM 60 //desired speed
 
 #define MICROSTEPS 1
@@ -40,23 +39,24 @@ float force = 0,dist = 0;
   1=full step, 2=half step etc. */
 
 // All the wires needed for full functionality; motor 1 (vertical) and motor2 (tool change)
-#define step1 2
-#define dir1 3
+#define stepPin 2
+#define dirPin 3
 #define DIR2 4
 #define STEP2 5
 
 // 2-wire basic config, microstepping is hardwired on the driver
-BasicStepperDriver stepper2(MOTOR_STEPS, DIR2, STEP2);
+//BasicStepperDriver stepper2(MOTOR_STEPS, DIR2, STEP2);
 
 
 
 //RELAY DEFINITIONS
-#define DRILL = 8
-#define PUMP = 9
-#define PROBE = 10
-#define VALVE1 = 11
-#define VALVE2 = 12
-#define VALVE3 = 13
+#define DRILL  8
+#define PUMP  10
+#define PROBE  9
+#define VALVE1  11
+#define VALVE2  12
+#define VALVE3  13
+#define vRef  7
 
 
 
@@ -68,8 +68,14 @@ BasicStepperDriver stepper2(MOTOR_STEPS, DIR2, STEP2);
 
 void setup() {
     //initialize stepper motors
-    pinMode(step1,OUTPUT);
-    pinMode(dir1,OUTPUT);
+    pinMode(stepPin,OUTPUT);
+    pinMode(dirPin,OUTPUT);
+
+    //initializes relays
+    pinMode(DRILL,OUTPUT);
+    pinMode(vRef,OUTPUT);
+    pinMode(PROBE,OUTPUT);
+    
     
     //stepper2.begin(RPM, MICROSTEPS);
     
@@ -86,7 +92,8 @@ void setup() {
 
 void loop() 
 {
-    oldRef = sref; //used to break loops if value changes
+    //used to break loops if value changes
+    
     sref = Serial.parseInt(); //which state are we in? 0 is read for no MATLAB inputs
       
     if(sref==1) drillDown(); //Drilling down
@@ -94,28 +101,49 @@ void loop()
     else if(sref==2) retract(); //Pull out then stop
     
     else if(sref==3){//Heating Element
-      
+      heater();
       } 
       
 } //end loop function
 
 void drillDown(void)
 {
-  digitalWrite(dir1, HIGH);
+  digitalWrite(dirPin, HIGH);
   
-  while(1)
+  digitalWrite(DRILL,HIGH);
+  
+  while(sref==0 || sref==1)
   {
     //one step
-    digitalWrite(step1, HIGH);
-    delayMicroseconds(400);
-    digitalWrite(step1, LOW);
-    
-    sref = Serial.parseInt();
-    //if(sref !=0 && sref!=1) break;
+    digitalWrite(stepPin, HIGH);
+    delayMicroseconds(500);
+    digitalWrite(stepPin, LOW);
+    delayMicroseconds(500);
+    if(Serial.available())
+      sref = Serial.parseInt();
+      
   } 
 }
 
 void retract(void)
 {
-  
+  digitalWrite(dirPin, LOW);
+  stepCount=0;
+  while(sref==0 || sref==2)
+  {
+    //one step
+    digitalWrite(stepPin, HIGH);
+    delayMicroseconds(500);
+    digitalWrite(stepPin, LOW);
+    delayMicroseconds(500);
+    if(Serial.available())
+      sref = Serial.parseInt();
+      
+  }  
+}
+
+void heater(void)
+{
+digitalWrite(DRILL,LOW);
+digitalWrite(PROBE,HIGH);  
 }
