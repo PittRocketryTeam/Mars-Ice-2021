@@ -11,10 +11,10 @@
  * Relay Code
  */
 #include<HX711.h> //Load cell library
+#include<BasicStepperDriver.h> //Stepper driver library (only for tool changer)
 
 
-
-//SERIAL COMMUNICATION VARIABLE
+//SERIAL COMMUNICATION VARIABLES
 int sref=0;
 
 
@@ -31,21 +31,22 @@ float force = 0,dist = 0;
 //MOTOR CONTROL DEFINITIONS
 // Define Motor steps per revolution. Ours is set with the switches on the motor controller
 #define MOTOR_STEPS 800
-#define RPM 60 //desired speed
-
+#define RPM 120 //desired speed
 #define MICROSTEPS 1
   /*Since microstepping is set externally, make sure this matches the selected mode
   If it doesn't, the motor will move at a different RPM than chosen
   1=full step, 2=half step etc. */
+  
+double stepDelay = 60.0/(long(RPM)*long(MOTOR_STEPS)*long(MICROSTEPS))*1000000;; //speed of delay used to control vertical speed (microseconds)
 
 // All the wires needed for full functionality; motor 1 (vertical) and motor2 (tool change)
 #define stepPin 2
 #define dirPin 3
-#define DIR2 4
-#define STEP2 5
+#define stepPin2 4
+#define dirPin2 5
 
 // 2-wire basic config, microstepping is hardwired on the driver
-//BasicStepperDriver stepper2(MOTOR_STEPS, DIR2, STEP2);
+BasicStepperDriver stepper2(MOTOR_STEPS, dirPin2, stepPin2);
 
 
 
@@ -56,7 +57,6 @@ float force = 0,dist = 0;
 #define VALVE1  11
 #define VALVE2  12
 #define VALVE3  13
-#define vRef  7
 
 
 
@@ -65,7 +65,7 @@ float force = 0,dist = 0;
 
 
 
-
+/////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
     //initialize stepper motors
     pinMode(stepPin,OUTPUT);
@@ -73,11 +73,10 @@ void setup() {
 
     //initializes relays
     pinMode(DRILL,OUTPUT);
-    pinMode(vRef,OUTPUT);
     pinMode(PROBE,OUTPUT);
     
     
-    //stepper2.begin(RPM, MICROSTEPS);
+    stepper2.begin(RPM, MICROSTEPS);
     
 
     //This code initializes force sensor
@@ -88,13 +87,13 @@ void setup() {
     
     //Begin serial communication, for use with MATLAB
     Serial.begin(9600);
-}
+}//end setup
 
+/////////////////////////////////////////////////////////////////////////////////////////
 void loop() 
-{
-    //used to break loops if value changes
-    
-    sref = Serial.parseInt(); //which state are we in? 0 is read for no MATLAB inputs
+{   
+    if(Serial.available())
+      sref = Serial.parseInt(); //which state are we in? 0 is read for no MATLAB inputs
       
     if(sref==1) drillDown(); //Drilling down
     
@@ -102,46 +101,48 @@ void loop()
     
     else if(sref==3){//Heating Element
       heater();
-      } 
-      
-} //end loop function
+      }   
+} //end main loop function
 
+/////////////////////////////////////////////////////////////////////////////////////////
 void drillDown(void)
-{
-  digitalWrite(dirPin, HIGH);
-  
-  digitalWrite(DRILL,HIGH);
-  
-  while(sref==0 || sref==1)
+{  
+  digitalWrite(dirPin, HIGH);//High for descent
+  digitalWrite(DRILL,HIGH);//turns on relays
+
+  while(sref==1||sref==0)
   {
     //one step
+    
     digitalWrite(stepPin, HIGH);
-    delayMicroseconds(500);
+    delayMicroseconds(stepDelay);
     digitalWrite(stepPin, LOW);
-    delayMicroseconds(500);
+    delayMicroseconds(stepDelay);
     if(Serial.available())
       sref = Serial.parseInt();
       
   } 
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
 void retract(void)
 {
   digitalWrite(dirPin, LOW);
-  stepCount=0;
-  while(sref==0 || sref==2)
+  
+  while(sref==2||sref==0)
   {
     //one step
     digitalWrite(stepPin, HIGH);
-    delayMicroseconds(500);
+    delayMicroseconds(stepDelay);
     digitalWrite(stepPin, LOW);
-    delayMicroseconds(500);
+    delayMicroseconds(stepDelay);
     if(Serial.available())
       sref = Serial.parseInt();
       
   }  
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
 void heater(void)
 {
 digitalWrite(DRILL,LOW);
