@@ -21,8 +21,8 @@ int sref=0;
 
 //DIGITAL CORE DEFINITIONS
 HX711 forceSensor; //initializes force sensor object
-#define dataPin 6
-#define clockPin 7
+#define dataPin 51
+#define clockPin 53
 
 float force = 0,dist = 0; 
 
@@ -110,14 +110,32 @@ void drillDown(void)
   digitalWrite(dirPin, HIGH);//High for descent
   digitalWrite(DRILL,HIGH);//turns on relays
 
+  int count=0; //step count
+  int stepDown = 0; //multiplier to prevent going over 30,000
+  int stepDown2 = 0; //second multiplier
+  
+  double distance = 0;
   while(sref==1||sref==0)
   {
     //one step
-    
     digitalWrite(stepPin, HIGH);
     delayMicroseconds(stepDelay);
     digitalWrite(stepPin, LOW);
     delayMicroseconds(stepDelay);
+
+    //digital core
+    count = count+1;
+
+    if(count%(MOTOR_STEPS/8)==0)//Output data every 1/8 turn
+    {
+      force = forceSensor.get_units(1); //averages 1 readings for output
+      
+      Serial.print(force);
+      Serial.print(" ");
+      Serial.print(count);
+      Serial.println(" ");
+    }
+    
     if(Serial.available())
       sref = Serial.parseInt();
       
