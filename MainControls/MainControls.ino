@@ -12,7 +12,11 @@
  */
 #include<HX711.h> //Load cell library
 #include<BasicStepperDriver.h> //Stepper driver library (only for tool changer)
+#include "EmonLib.h"
 
+//AMMETER VARIABLES
+EnergyMonitor emon1;                   // Create an instance for ammeter
+double Irms;
 
 //SERIAL COMMUNICATION VARIABLES
 int sref=0;
@@ -32,15 +36,15 @@ float force = 0,dist = 0;
 // Define Motor steps per revolution. Ours is set with the switches on the motor controller
 #define MOTOR_STEPS1 800
 #define MOTOR_STEPS2 3200
-#define RPM1 120 //desired speed
+#define RPM1 60 //desired speed
 #define RPM2 30
 #define MICROSTEPS 1
   /*Since microstepping is set externally, make sure this matches the selected mode
   If it doesn't, the motor will move at a different RPM than chosen
   1=full step, 2=half step etc. */
   
-double stepDelay = 60.0/(long(RPM1)*long(MOTOR_STEPS1)*long(MICROSTEPS))*1000000;; //speed of delay used to control vertical speed (microseconds)
-int count=0; //step count
+double stepDelay = 60.0/(long(RPM1)*long(MOTOR_STEPS1)*long(MICROSTEPS)*2)*1000000; //speed of delay used to control vertical speed (microseconds)
+long distance=0; //step count
 
 // All the wires needed for full functionality; motor 1 (vertical) and motor2 (tool change)
 #define stepPin 2
@@ -61,11 +65,6 @@ BasicStepperDriver stepper2(MOTOR_STEPS2, dirPin2, stepPin2);
 #define VALVE1  11
 #define VALVE2  12
 #define VALVE3  13
-
-
-
-//AMMETER DEFINITIONS
-
 
 
 
@@ -91,7 +90,9 @@ void setup() {
     
     //Begin serial communication, for use with MATLAB
     Serial.begin(9600);
+    emon1.current(1, 111.1); //for ammeter
 }//end setup
+
 
 /////////////////////////////////////////////////////////////////////////////////////////
 void loop() 
@@ -112,6 +113,8 @@ void loop()
     else if(sref==6) tool4(); 
     
     else if(sref==7) heater(); //Heating Element
+
+    else if(sref==8) pump();
       
 } //end main loop function
 
@@ -119,16 +122,14 @@ void loop()
 void drillDown(void)
 {  
   digitalWrite(PUMP,LOW);
-  digitalWrite(PROBE.LOW);
+  digitalWrite(PROBE,LOW);
   digitalWrite(DRILL,HIGH);//turns on relays
 
+  delay(1000); //wait 1sec before starting drill
+  
   digitalWrite(dirPin, HIGH);//High for descent
   
-  count = 0;
-  int stepDown = 0; //multiplier to prevent going over 30,000
-  int stepDown2 = 0; //second multiplier
-  
-  double distance = 0;
+  distance = 0;
   while(sref==1||sref==0)
   {
     //one step
@@ -138,15 +139,18 @@ void drillDown(void)
     delayMicroseconds(stepDelay);
 
     //digital core
-    count = count+1;
+    distance = distance+1;
     
-    if(count%(MOTOR_STEPS1/8)==0)//Output data every 1/8 turn
+    if(int(distance)%8==0)//Output data every 1/8 turn
     {
+      Irms = emon1.calcIrms(1480);  // Calculate Irms only
       force = forceSensor.get_units(1); //averages 1 readings for output
       
-      Serial.print(count);
+      Serial.print(distance);
       Serial.print(" ");
       Serial.print(force);
+      Serial.print(" ");
+      Serial.print(Irms);
       Serial.println(" ");
     }
     
@@ -161,15 +165,23 @@ void retract(void)
 {
   digitalWrite(dirPin, LOW);
   
-  while((sref==2||sref==0)&&count>0) //reverses count to end at starting position (if not stopped externally)
+  while((sref==2||sref==0)&&distance>0) //reverses count to end at starting position (if not stopped externally)
   {
     digitalWrite(stepPin, HIGH);
     delayMicroseconds(stepDelay);
     digitalWrite(stepPin, LOW);
     delayMicroseconds(stepDelay);
+
+     if(int(distance)/8==0)//Output data every 1/8 turn
+    {
+      Irms = emon1.calcIrms(1480);  // Calculate Irms only
+      Serial.print(Irms);
+      Serial.println(" ");
+    }
+    
     if(Serial.available())
       sref = Serial.parseInt();
-    count = count-1;
+    distance = distance-1;
   }  
 }
 
