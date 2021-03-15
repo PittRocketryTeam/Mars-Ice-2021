@@ -84,7 +84,7 @@ void setup() {
 
    //initializes relays
     pinMode(DRILL,OUTPUT);
-    pinMode(PUMP,HIGH);
+    pinMode(PUMP,OUTPUT);
     pinMode(PROBE,OUTPUT);
     pinMode(VALVE1,OUTPUT);
     pinMode(VALVE2,OUTPUT);
