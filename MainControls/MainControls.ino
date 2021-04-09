@@ -15,7 +15,8 @@
 #include<BasicStepperDriver.h> //Stepper driver library (only for tool changer)
 #include "EmonLib.h"
 
- 
+#define setPin(b) ( (b)<8 ? PORTD |=(1<<(b)) : PORTB |=(1<<(b-8)) )
+#define clrPin(b) ( (b)<8 ? PORTD &=~(1<<(b)) : PORTB &=~(1<<(b-8)) )
 
 //AMMETER VARIABLES
 EnergyMonitor emon1; // Create an instance for ammeter
@@ -154,9 +155,9 @@ void drillDown(void)
   while(sref==1||sref==0) //ADD A CALCULATED DISTANCE MAX
   {
     //one step
-    digitalWrite(stepPin, HIGH);
+    setPin(stepPin);
     delayMicroseconds(stepDelay);
-    digitalWrite(stepPin, LOW);
+    clrPin(stepPin);
     delayMicroseconds(stepDelay);
 
     //digital core
