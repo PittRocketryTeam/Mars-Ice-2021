@@ -85,6 +85,8 @@ void setup() {
     //initialize stepper motors
     pinMode(stepPin,OUTPUT);
     pinMode(dirPin,OUTPUT);
+    pinMode(act1,OUTPUT);
+    pinMode(act2,OUTPUT);
 
     //initializes limit switches
     pinMode(topLimit,INPUT);
